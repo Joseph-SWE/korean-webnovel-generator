@@ -487,8 +487,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Validate the parsed response structure
-    if (!parsedResponse || !parsedResponse.content || !parsedResponse.content.chapter) {
+    // Validate the parsed response structure and handle both formats
+    let chapterContent: string;
+    
+    if (!parsedResponse || !parsedResponse.content) {
       console.error('AI response missing required structure:', parsedResponse);
       return NextResponse.json(
         { success: false, error: 'AI response missing required content structure' },
@@ -496,8 +498,18 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Extract relevant data
-    const chapterContent = parsedResponse.content.chapter;
+    // Handle both content formats: { "content": { "chapter": "text" } } and { "content": "text" }
+    if (typeof parsedResponse.content === 'string') {
+      chapterContent = parsedResponse.content;
+    } else if (parsedResponse.content.chapter) {
+      chapterContent = parsedResponse.content.chapter;
+    } else {
+      console.error('AI response has content but no chapter field:', parsedResponse);
+      return NextResponse.json(
+        { success: false, error: 'AI response missing required chapter content' },
+        { status: 500 }
+      );
+    }
     const wordCount = chapterContent.split(/\s+/).filter(Boolean).length;
     const metadata = parsedResponse.metadata;
     const additionalData: AdditionalData = parsedResponse.additionalData || {};

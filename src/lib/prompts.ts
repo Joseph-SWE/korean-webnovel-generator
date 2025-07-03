@@ -237,7 +237,9 @@ ${plotFocus ? `**📋 이번 화의 주요 플롯:** ${plotFocus}\n` : ''}
 2. **분량**: 목표 분량 ${targetWordCount}자에 최대한 맞춰주세요
 3. **연속성**: 위의 모든 이전 화 정보를 바탕으로 자연스럽게 이어지는 내용
 4. **클리프행어**: 반드시 다음 화를 기대하게 만드는 강력한 클리프행어로 마무리
-5. **JSON 형식**: 다음 JSON 스키마를 따르세요
+5. **JSON 형식**: 다음 JSON 스키마를 **정확히** 따르세요
+
+**⚠️ 중요: 반드시 아래 JSON 형식을 정확히 따라주세요! content 필드는 반드시 객체이고 그 안에 chapter 필드가 있어야 합니다.**
 
 \`\`\`json
 {
@@ -291,7 +293,12 @@ ${plotFocus ? `**📋 이번 화의 주요 플롯:** ${plotFocus}\n` : ''}
 - **캐릭터 일관성**: 최근 캐릭터 상태와 발전을 반영한 행동과 대사
 - **JSON 형식만**: 다른 설명은 추가하지 마세요
 
-**🔥 연재 소설답게 이전 화와 완벽하게 연결되는 ${chapterNumber}화를 만들어주세요!**`;
+**🚨 JSON 구조 필수 요구사항:**
+1. content 필드는 반드시 객체여야 함: "content": { "chapter": "..." }
+2. content 필드에 직접 문자열을 넣지 마세요: "content": "..." ❌
+3. 반드시 content.chapter 형태로 작성: "content": { "chapter": "실제 내용" } ✅
+
+**🔥 연재 소설답게 이전 화와 완벽하게 연결되는 ${chapterNumber}화를 정확한 JSON 형식으로 만들어주세요!**`;
 }
 
 export function generateCharacterPrompt(
