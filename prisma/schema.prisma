@@ -1,0 +1,185 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// User management
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  username  String   @unique
+  createdAt DateTime @default(now())
+  novels    Novel[]
+}
+
+// Core novel structure
+model Novel {
+  id            String         @id @default(cuid())
+  title         String
+  description   String?
+  genre         Genre
+  setting       Setting
+  authorId      String
+  author        User           @relation(fields: [authorId], references: [id])
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  chapters      Chapter[]
+  characters    Character[]
+  plotlines     Plotline[]
+  worldBuilding WorldBuilding?
+}
+
+// Chapter management
+model Chapter {
+  id                    String                 @id @default(cuid())
+  number                Int
+  title                 String
+  content               String
+  wordCount             Int
+  summary               String?                // Summary of the chapter content
+  cliffhanger           String?
+  additionalData        String?                // JSON string for additional metadata
+  novelId               String
+  novel                 Novel                  @relation(fields: [novelId], references: [id])
+  createdAt             DateTime               @default(now())
+  events                ChapterEvent[]
+  characterUsages       CharacterUsage[]
+  plotlineDevelopments  PlotlineDevelopment[]
+
+  @@unique([novelId, number])
+}
+
+// Character consistency
+model Character {
+  id            String           @id @default(cuid())
+  name          String
+  description   String
+  personality   String
+  background    String
+  relationships String           // JSON string for character relationships
+  novelId       String
+  novel         Novel            @relation(fields: [novelId], references: [id])
+  appearances   ChapterEvent[]
+  usages        CharacterUsage[]
+}
+
+// Plot management
+model Plotline {
+  id           String                  @id @default(cuid())
+  name         String
+  description  String
+  status       PlotStatus
+  priority     Int                     @default(0)
+  novelId      String
+  novel        Novel                   @relation(fields: [novelId], references: [id])
+  events       ChapterEvent[]
+  developments PlotlineDevelopment[]
+}
+
+// World building consistency
+model WorldBuilding {
+  id          String @id @default(cuid())
+  novelId     String @unique
+  novel       Novel  @relation(fields: [novelId], references: [id])
+  magicSystem String? // JSON string
+  locations   String? // JSON string
+  cultures    String? // JSON string
+  timeline    String? // JSON string
+  rules       String? // JSON string
+}
+
+// Chapter events for consistency tracking
+model ChapterEvent {
+  id          String     @id @default(cuid())
+  chapterId   String
+  chapter     Chapter    @relation(fields: [chapterId], references: [id])
+  characterId String?
+  character   Character? @relation(fields: [characterId], references: [id])
+  plotlineId  String?
+  plotline    Plotline?  @relation(fields: [plotlineId], references: [id])
+  eventType   EventType
+  description String
+  importance  Int        @default(1)
+}
+
+// Character usage tracking
+model CharacterUsage {
+  id               String  @id @default(cuid())
+  chapterId        String
+  chapter          Chapter @relation(fields: [chapterId], references: [id])
+  characterId      String
+  character        Character @relation(fields: [characterId], references: [id])
+  role             String  // protagonist, antagonist, supporting, minor
+  developmentNotes String?
+  createdAt        DateTime @default(now())
+}
+
+// Plotline development tracking
+model PlotlineDevelopment {
+  id              String   @id @default(cuid())
+  chapterId       String
+  chapter         Chapter  @relation(fields: [chapterId], references: [id])
+  plotlineId      String
+  plotline        Plotline @relation(fields: [plotlineId], references: [id])
+  developmentType String   // introduction, advancement, complication, resolution
+  description     String
+  createdAt       DateTime @default(now())
+}
+
+enum Genre {
+  ROMANCE
+  FANTASY
+  MARTIAL_ARTS
+  MODERN_URBAN
+  HISTORICAL
+  ISEKAI
+  REGRESSION
+  VILLAINESS
+  SYSTEM
+}
+
+enum Setting {
+  MODERN_KOREA
+  HISTORICAL_KOREA
+  FANTASY_WORLD
+  MURIM_WORLD
+  ISEKAI_WORLD
+  ROYAL_COURT
+  SCHOOL_OFFICE
+  POST_APOCALYPTIC
+}
+
+enum PlotStatus {
+  PLANNED        // Initial state, plotline created but not yet introduced
+  INTRODUCED     // Plotline has been introduced in the story
+  DEVELOPING     // Plotline is actively being developed
+  COMPLICATED    // Plotline has complications/conflicts
+  CLIMAXING      // Plotline is reaching its climax
+  RESOLVED       // Plotline has been resolved/concluded
+  ABANDONED      // Plotline was abandoned/dropped
+}
+
+enum EventType {
+  CHARACTER_INTRODUCTION
+  PLOT_ADVANCEMENT
+  ROMANCE_DEVELOPMENT
+  CONFLICT_ESCALATION
+  REVELATION
+  CLIFFHANGER
+  CLIFFHANGER_RESOLUTION
+  CHARACTER_DEVELOPMENT
+  WORLD_BUILDING
+  DIALOGUE_SCENE
+  ACTION_SCENE
+  FLASHBACK
+  FORESHADOWING
+  TWIST
+  RESOLUTION
+}
