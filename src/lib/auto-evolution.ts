@@ -53,6 +53,34 @@ interface WorldBuildingUpdateData {
 export class AutoEvolutionService {
   
   /**
+   * Helper function for safe JSON parsing - returns string[] for arrays, string for text
+   */
+  private safeJsonParseArray(jsonString: string | null | undefined): string[] {
+    if (!jsonString) {
+      return [];
+    }
+    
+    // Check if it's already a valid JSON string by looking for JSON-like structure
+    const trimmed = jsonString.trim();
+    if (trimmed.startsWith('[')) {
+      try {
+        const parsed = JSON.parse(jsonString);
+        if (Array.isArray(parsed)) {
+          return parsed;
+        }
+        console.warn("Parsed value is not an array as expected, returning single item array:", jsonString);
+        return [jsonString];
+      } catch (error) {
+        console.error("Failed to parse JSON string, returning single item array:", jsonString, error);
+        return [jsonString];
+      }
+    } else {
+      // It's plain text, convert to single-item array
+      return [jsonString];
+    }
+  }
+
+  /**
    * Automatically evolve character data based on their development notes from chapters
    */
   async evolveCharacterData(characterId: string): Promise<{ updated: boolean; changes: string[] }> {
@@ -258,7 +286,7 @@ JSON 형식으로 응답해주세요:
       // Merge locations
       if (newElements.locations && Array.isArray(newElements.locations)) {
         const existingLocations = existingWorldBuilding?.locations 
-          ? JSON.parse(existingWorldBuilding.locations) 
+          ? this.safeJsonParseArray(existingWorldBuilding.locations) 
           : [];
         
         const newLocations = newElements.locations.filter(
@@ -274,7 +302,7 @@ JSON 형식으로 응답해주세요:
       // Merge rules
       if (newElements.rules && Array.isArray(newElements.rules)) {
         const existingRules = existingWorldBuilding?.rules 
-          ? JSON.parse(existingWorldBuilding.rules) 
+          ? this.safeJsonParseArray(existingWorldBuilding.rules) 
           : [];
         
         const newRules = newElements.rules.filter(

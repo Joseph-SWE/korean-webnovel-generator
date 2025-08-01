@@ -3,10 +3,10 @@ import { prisma } from '@/lib/db';
 import { z } from 'zod';
 
 const createCharacterSchema = z.object({
-  name: z.string().min(1),
-  description: z.string().min(1),
-  personality: z.string().min(1),
-  background: z.string().min(1),
+  name: z.string().min(1).max(50),
+  description: z.string().min(1).max(500),
+  personality: z.string().min(1).max(800),
+  background: z.string().min(1).max(1000),
   relationships: z.string().optional().default('{}'),
   novelId: z.string(),
 });

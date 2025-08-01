@@ -13,7 +13,8 @@ import {
   Target,
   X,
   Globe,
-  AlertTriangle
+  AlertTriangle,
+  RotateCcw
 } from 'lucide-react';
 import { CharacterUsage, PlotlineDevelopment, WorldBuildingUsage } from '@/types';
 
@@ -107,6 +108,20 @@ export default function NovelPage() {
     number: number;
   } | null>(null);
   
+  const [showRewriteChapterModal, setShowRewriteChapterModal] = useState(false);
+  const [chapterToRewrite, setChapterToRewrite] = useState<{
+    id: string;
+    title: string;
+    number: number;
+  } | null>(null);
+  const [rewriteForm, setRewriteForm] = useState({
+    rewriteReason: '',
+    rewriteInstructions: '',
+    targetWordCount: 2500,
+    maintainPlotPoints: true,
+    maintainCharacterDevelopment: true
+  });
+  
   // Form data states
   const [characterForm, setCharacterForm] = useState({
     name: '',
@@ -174,6 +189,30 @@ export default function NovelPage() {
       fetchNovel();
     }
   }, [novelId]);
+
+  // Handle rewrite parameter from URL
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const rewriteChapterId = urlParams.get('rewrite');
+    
+    if (rewriteChapterId && novel) {
+      // Find the chapter to rewrite
+      const chapterToRewrite = novel.chapters.find(c => c.id === rewriteChapterId);
+      if (chapterToRewrite) {
+        setChapterToRewrite({
+          id: chapterToRewrite.id,
+          title: chapterToRewrite.title,
+          number: chapterToRewrite.number
+        });
+        setShowRewriteChapterModal(true);
+        setActiveTab('chapters');
+        
+        // Clean up URL
+        const newUrl = window.location.pathname;
+        window.history.replaceState({}, '', newUrl);
+      }
+    }
+  }, [novel]);
 
   const getGenreColor = (genre: string) => {
     const colors: Record<string, string> = {
@@ -553,6 +592,95 @@ export default function NovelPage() {
     }
   };
 
+  const handleRewriteChapter = async (chapter: { id: string; title: string; number: number }) => {
+    setChapterToRewrite(chapter);
+    // Reset form with helpful placeholder focus
+    setRewriteForm({
+      rewriteReason: '',
+      rewriteInstructions: '',
+      targetWordCount: 2500,
+      maintainPlotPoints: true,
+      maintainCharacterDevelopment: true
+    });
+    setShowRewriteChapterModal(true);
+  };
+
+  const confirmRewriteChapter = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!chapterToRewrite) return;
+    
+    if (!rewriteForm.rewriteReason.trim()) {
+      alert('Please specify why you want to rewrite this chapter. This helps the AI understand what to improve.');
+      return;
+    }
+    
+    setIsSubmitting(true);
+    try {
+      const response = await fetch(`/api/chapters/${chapterToRewrite.id}/rewrite`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          rewriteReason: rewriteForm.rewriteReason,
+          rewriteInstructions: rewriteForm.rewriteInstructions,
+          targetWordCount: rewriteForm.targetWordCount,
+          maintainPlotPoints: rewriteForm.maintainPlotPoints,
+          maintainCharacterDevelopment: rewriteForm.maintainCharacterDevelopment
+        })
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: 'Network error occurred' }));
+        throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      if (data.success) {
+        let message = `Chapter rewritten successfully!\n\n`;
+        message += `Word count: ${data.rewriteInfo.originalWordCount} → ${data.rewriteInfo.newWordCount} words\n`;
+        
+        if (data.metadata?.generatedMetadata?.reasonAnalysis) {
+          message += `\nHow your concerns were addressed:\n${data.metadata.generatedMetadata.reasonAnalysis}`;
+        }
+        
+        if (data.metadata?.generatedMetadata?.improvements) {
+          message += `\n\nKey improvements made:\n${data.metadata.generatedMetadata.improvements}`;
+        }
+        
+        alert(message);
+        // Refresh novel data
+        window.location.reload();
+      } else {
+        alert(`Rewrite failed: ${data.error || 'Unknown error occurred'}`);
+      }
+    } catch (error) {
+      console.error('Error rewriting chapter:', error);
+      
+      let errorMessage = 'Failed to rewrite chapter';
+      if (error instanceof Error) {
+        if (error.message.includes('JSON.parse') || error.message.includes('Unexpected token')) {
+          errorMessage = 'The AI returned an invalid response format. Please try again, or try simplifying your rewrite instructions.';
+        } else if (error.message.includes('AI response format error')) {
+          errorMessage = 'The AI had trouble understanding the request. Please try rewording your reason for rewriting and try again.';
+        } else {
+          errorMessage = `Rewrite failed: ${error.message}`;
+        }
+      }
+      
+      alert(errorMessage);
+    } finally {
+      setIsSubmitting(false);
+      setShowRewriteChapterModal(false);
+      setChapterToRewrite(null);
+      setRewriteForm({
+        rewriteReason: '',
+        rewriteInstructions: '',
+        targetWordCount: 2500,
+        maintainPlotPoints: true,
+        maintainCharacterDevelopment: true
+      });
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 p-6">
@@ -784,6 +912,13 @@ export default function NovelPage() {
                               title="Edit chapter"
                             >
                               <Edit className="h-4 w-4" />
+                            </button>
+                            <button 
+                              onClick={() => handleRewriteChapter(chapter)}
+                              className="p-2 border border-gray-300 rounded hover:bg-gray-50 hover:border-blue-300 hover:text-blue-600"
+                              title="Rewrite chapter with AI"
+                            >
+                              <RotateCcw className="h-4 w-4" />
                             </button>
                             <button 
                               onClick={() => handleDeleteChapter(chapter)}
@@ -1468,6 +1603,131 @@ export default function NovelPage() {
                 {isSubmitting ? 'Deleting...' : 'Delete Chapter'}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Rewrite Chapter Modal */}
+      {showRewriteChapterModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-2xl mx-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-semibold">
+                Rewrite Chapter {chapterToRewrite?.number}: {chapterToRewrite?.title}
+              </h3>
+              <button
+                onClick={() => {
+                  setShowRewriteChapterModal(false);
+                  setChapterToRewrite(null);
+                }}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="h-6 w-6" />
+              </button>
+            </div>
+            <div className="mb-4 p-4 bg-blue-50 rounded-lg">
+              <h4 className="font-semibold text-blue-900 mb-2">How Chapter Rewriting Works</h4>
+              <p className="text-sm text-blue-800">
+                The AI will analyze your existing chapter and rewrite it completely while maintaining continuity with your story. 
+                Please specify why you want to rewrite this chapter so the AI can focus on the specific improvements you need.
+              </p>
+            </div>
+            <form onSubmit={confirmRewriteChapter} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Why do you want to rewrite this chapter? <span className="text-red-500">*</span>
+                </label>
+                <textarea
+                  value={rewriteForm.rewriteReason}
+                  onChange={(e) => setRewriteForm({ ...rewriteForm, rewriteReason: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  rows={3}
+                  placeholder="Be specific about what you want to improve. Examples:
+• The pacing feels too slow in the middle section
+• Character dialogue doesn't feel natural
+• The emotional impact of the climax is lacking
+• Plot progression feels rushed
+• Need more tension and suspense
+• Character motivations are unclear
+• The chapter ending is weak"
+                  required
+                  autoFocus
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  This helps the AI understand exactly what needs improvement and focus the rewrite accordingly.
+                </p>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Specific Instructions (Optional)
+                </label>
+                <textarea
+                  value={rewriteForm.rewriteInstructions}
+                  onChange={(e) => setRewriteForm({ ...rewriteForm, rewriteInstructions: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  rows={3}
+                  placeholder="Provide specific instructions for the rewrite (e.g., add more emotional depth, focus on character interaction, improve action sequences)..."
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Target Word Count
+                </label>
+                <input
+                  type="number"
+                  value={rewriteForm.targetWordCount}
+                  onChange={(e) => setRewriteForm({ ...rewriteForm, targetWordCount: parseInt(e.target.value) || 2500 })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  min="500"
+                  max="10000"
+                />
+              </div>
+              <div className="space-y-3">
+                <div className="flex items-center">
+                  <input
+                    type="checkbox"
+                    id="maintainPlotPoints"
+                    checked={rewriteForm.maintainPlotPoints}
+                    onChange={(e) => setRewriteForm({ ...rewriteForm, maintainPlotPoints: e.target.checked })}
+                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                  />
+                  <label htmlFor="maintainPlotPoints" className="ml-2 block text-sm text-gray-900">
+                    Maintain core plot points <span className="text-gray-500">(recommended)</span>
+                  </label>
+                </div>
+                <div className="flex items-center">
+                  <input
+                    type="checkbox"
+                    id="maintainCharacterDevelopment"
+                    checked={rewriteForm.maintainCharacterDevelopment}
+                    onChange={(e) => setRewriteForm({ ...rewriteForm, maintainCharacterDevelopment: e.target.checked })}
+                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                  />
+                  <label htmlFor="maintainCharacterDevelopment" className="ml-2 block text-sm text-gray-900">
+                    Preserve character development <span className="text-gray-500">(recommended)</span>
+                  </label>
+                </div>
+              </div>
+              <div className="flex justify-end space-x-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowRewriteChapterModal(false);
+                    setChapterToRewrite(null);
+                  }}
+                  className="px-4 py-2 text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
+                >
+                  {isSubmitting ? 'Rewriting...' : 'Rewrite Chapter'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

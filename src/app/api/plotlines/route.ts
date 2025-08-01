@@ -3,8 +3,8 @@ import { prisma } from '@/lib/db';
 import { z } from 'zod';
 
 const createPlotlineSchema = z.object({
-  name: z.string().min(1),
-  description: z.string().min(1),
+  name: z.string().min(1).max(100),
+  description: z.string().min(1).max(500),
   status: z.enum(['PLANNED', 'INTRODUCED', 'DEVELOPING', 'COMPLICATED', 'CLIMAXING', 'RESOLVED', 'ABANDONED']).default('PLANNED'),
   priority: z.number().min(1).max(5).default(1),
   novelId: z.string(),

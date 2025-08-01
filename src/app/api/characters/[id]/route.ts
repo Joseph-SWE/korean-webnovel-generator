@@ -3,10 +3,10 @@ import { prisma } from '@/lib/db';
 import { z } from 'zod';
 
 const updateCharacterSchema = z.object({
-  name: z.string().min(1).optional(),
-  description: z.string().min(1).optional(),
-  personality: z.string().min(1).optional(),
-  background: z.string().min(1).optional(),
+  name: z.string().min(1).max(50).optional(),
+  description: z.string().min(1).max(500).optional(),
+  personality: z.string().min(1).max(800).optional(),
+  background: z.string().min(1).max(1000).optional(),
   relationships: z.string().optional(),
 });
 

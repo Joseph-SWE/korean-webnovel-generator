@@ -99,8 +99,7 @@ export async function PUT(
       where: { id },
       data: {
         title: body.title,
-        description: body.description,
-        updatedAt: new Date()
+        description: body.description
       },
       include: {
         author: {

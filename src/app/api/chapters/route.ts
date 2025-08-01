@@ -3,10 +3,10 @@ import { prisma } from '@/lib/db';
 import { z } from 'zod';
 
 const createChapterSchema = z.object({
-  title: z.string().min(1),
+  title: z.string().min(1).max(80),
   content: z.string().default(''),
   novelId: z.string(),
-  cliffhanger: z.string().optional(),
+  cliffhanger: z.string().max(200).optional(),
 });
 
 export async function POST(request: NextRequest) {
@@ -47,6 +47,7 @@ export async function POST(request: NextRequest) {
         wordCount,
         cliffhanger: validatedData.cliffhanger,
         novelId: validatedData.novelId,
+        additionalData: JSON.stringify({}) // Initialize with empty object instead of null
       }
     });
 

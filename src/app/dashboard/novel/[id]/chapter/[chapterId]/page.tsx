@@ -9,7 +9,8 @@ import {
   BookOpen,
   User,
   Calendar,
-  Eye
+  Eye,
+  RotateCcw
 } from 'lucide-react';
 
 interface Chapter {
@@ -161,6 +162,16 @@ export default function ChapterPage() {
             </button>
             
             <div className="flex items-center space-x-4">
+              {/* Rewrite Button */}
+              <button 
+                onClick={() => router.push(`/dashboard/novel/${novelId}?rewrite=${chapterId}`)}
+                className="flex items-center px-3 py-1 text-blue-600 hover:bg-blue-50 rounded-md"
+                title="Rewrite this chapter"
+              >
+                <RotateCcw className="h-4 w-4 mr-1" />
+                <span className="hidden sm:inline">Rewrite</span>
+              </button>
+              
               {/* Font Size Controls */}
               <div className="flex items-center space-x-2">
                 <button 

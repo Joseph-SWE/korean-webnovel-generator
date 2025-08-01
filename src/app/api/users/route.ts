@@ -3,7 +3,7 @@ import { prisma } from '@/lib/db';
 import { z } from 'zod';
 
 const createUserSchema = z.object({
-  username: z.string().min(1),
+  username: z.string().min(1).max(50),
   email: z.string().email(),
 });
 

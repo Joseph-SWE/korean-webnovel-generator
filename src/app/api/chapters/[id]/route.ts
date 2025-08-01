@@ -7,29 +7,29 @@ import { updatePlotlineStatus } from '@/lib/plotline-evolution';
 
 // Validation schema for chapter updates
 const updateChapterSchema = z.object({
-  title: z.string().min(1).optional(),
+  title: z.string().min(1).max(80).optional(),
   content: z.string().optional(),
-  cliffhanger: z.string().optional(),
-  summary: z.string().optional(),
-  additionalData: z.object({
-    charactersInvolved: z.array(z.object({
-      name: z.string(),
-      role: z.enum(['protagonist', 'antagonist', 'supporting', 'minor']),
-      developmentNote: z.string().optional(),
-    })).optional(),
-    plotlineDevelopment: z.array(z.object({
-      plotlineName: z.string(),
-      developmentType: z.enum(['introduction', 'advancement', 'complication', 'resolution']),
-      description: z.string(),
-    })).optional(),
-    chapterEvents: z.array(z.object({
-      eventType: z.enum(['CHARACTER_INTRODUCTION', 'PLOT_ADVANCEMENT', 'ROMANCE_DEVELOPMENT', 'CONFLICT_ESCALATION', 'REVELATION', 'CLIFFHANGER', 'CLIFFHANGER_RESOLUTION', 'CHARACTER_DEVELOPMENT', 'WORLD_BUILDING', 'DIALOGUE_SCENE', 'ACTION_SCENE', 'FLASHBACK', 'FORESHADOWING', 'TWIST', 'RESOLUTION']),
-      description: z.string(),
-      characterName: z.string().optional(),
-      plotlineName: z.string().optional(),
-    })).optional(),
-    cliffhanger: z.string().optional(),
-  }).optional(),
+  cliffhanger: z.string().max(200).optional(),
+  summary: z.string().max(500).optional(),
+      additionalData: z.object({
+      charactersInvolved: z.array(z.object({
+        name: z.string().max(50),
+        role: z.enum(['protagonist', 'antagonist', 'supporting', 'minor']),
+        developmentNote: z.string().max(300).optional(),
+      })).optional(),
+      plotlineDevelopment: z.array(z.object({
+        plotlineName: z.string().max(100),
+        developmentType: z.enum(['introduction', 'advancement', 'complication', 'resolution']),
+        description: z.string().max(500),
+      })).optional(),
+      chapterEvents: z.array(z.object({
+        eventType: z.enum(['CHARACTER_INTRODUCTION', 'PLOT_ADVANCEMENT', 'ROMANCE_DEVELOPMENT', 'CONFLICT_ESCALATION', 'REVELATION', 'CLIFFHANGER', 'CLIFFHANGER_RESOLUTION', 'CHARACTER_DEVELOPMENT', 'WORLD_BUILDING', 'DIALOGUE_SCENE', 'ACTION_SCENE', 'FLASHBACK', 'FORESHADOWING', 'TWIST', 'COMPLICATION', 'RESOLUTION', 'ABILITY_ACQUISITION']),
+        description: z.string().max(500),
+        characterName: z.string().max(50).optional(),
+        plotlineName: z.string().max(100).optional(),
+      })).optional(),
+      cliffhanger: z.string().max(200).optional(),
+    }).optional(),
 });
 
 export async function GET(
@@ -185,6 +185,10 @@ export async function PUT(
     if (validatedData.summary) chapterUpdateData.summary = validatedData.summary;
     if (validatedData.additionalData) {
       chapterUpdateData.additionalData = JSON.stringify(validatedData.additionalData);
+    }
+    // If no additionalData is provided and the existing one is null, initialize with empty object
+    else if (!existingChapter.additionalData) {
+      chapterUpdateData.additionalData = JSON.stringify({});
     }
 
     // Use transaction to update all related data

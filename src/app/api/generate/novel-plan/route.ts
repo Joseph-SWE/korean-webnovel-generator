@@ -4,11 +4,20 @@ import { generateNovelPlanPrompt } from '@/lib/prompts';
 import { NovelPlan } from '@/types';
 import { z } from 'zod';
 
+interface SyntaxErrorWithPosition extends SyntaxError {
+  position: number;
+}
+
+// User-defined type guard for SyntaxError with a position property
+function isSyntaxErrorWithPosition(error: unknown): error is SyntaxErrorWithPosition {
+  return typeof error === 'object' && error !== null && 'position' in error && typeof (error as SyntaxErrorWithPosition).position === 'number';
+}
+
 const generatePlanSchema = z.object({
   genre: z.string(),
   setting: z.string(),
-  basicPremise: z.string().min(10),
-  description: z.string().optional(),
+  basicPremise: z.string().min(10).max(500),
+  description: z.string().max(1000).optional(),
 });
 
 interface ParsedCharacter {
@@ -87,42 +96,63 @@ export async function POST(request: NextRequest) {
 }
 
 function parseGeneratedPlan(generatedText: string): NovelPlan {
+  let jsonText = generatedText;
+
   try {
-    // First, try to extract JSON from markdown code blocks
+    // Attempt to extract JSON from markdown code blocks first
     const jsonMatch = generatedText.match(/```json\s*([\s\S]*?)\s*```/);
-    let jsonText = jsonMatch ? jsonMatch[1] : generatedText;
-    
-    // If no code block found, try to find JSON object directly
-    if (!jsonMatch) {
+    if (jsonMatch && jsonMatch[1]) {
+      jsonText = jsonMatch[1];
+    } else {
+      // If no markdown code block, try to find the main JSON object directly
+      // This is a fallback for cases where the AI doesn't wrap in ```json
       const jsonObjectMatch = generatedText.match(/\{[\s\S]*\}/);
-      if (jsonObjectMatch) {
+      if (jsonObjectMatch && jsonObjectMatch[0]) {
         jsonText = jsonObjectMatch[0];
       }
     }
+
+    // Aggressive cleanup: Find the first '{' and the last '}' (or '[' and ']') to ensure
+    // we only attempt to parse what's inside a potential JSON object or array.
+    const firstBrace = jsonText.indexOf('{');
+    const lastBrace = jsonText.lastIndexOf('}');
+    const firstBracket = jsonText.indexOf('[');
+    const lastBracket = jsonText.lastIndexOf(']');
+
+    let startIndex = -1;
+    let endIndex = -1;
+
+    // Prioritize object or array based on which appears first and closes last
+    if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+      startIndex = firstBrace;
+      endIndex = lastBrace;
+    }
+
+    if (firstBracket !== -1 && lastBracket !== -1 && lastBracket > firstBracket) {
+      if (startIndex === -1 || (firstBracket < startIndex && lastBracket > endIndex)) {
+        startIndex = firstBracket;
+        endIndex = lastBracket;
+      }
+    }
+
+    if (startIndex !== -1 && endIndex !== -1) {
+      jsonText = jsonText.substring(startIndex, endIndex + 1);
+    }
     
-    // Clean up the JSON text more thoroughly
+    // Additional cleanup for invisible characters and BOM
     jsonText = jsonText.trim();
-    
-    // Remove any potential BOM (Byte Order Mark) characters
-    jsonText = jsonText.replace(/^\uFEFF/, '');
-    
-    // Remove any invisible characters and normalize whitespace
-    jsonText = jsonText.replace(/[\u200B-\u200D\uFEFF]/g, '');
-    
-    // Ensure proper UTF-8 encoding for Korean characters
+    jsonText = jsonText.replace(/^\uFEFF/, ''); // Remove BOM
+    // Remove any invisible characters and control characters except common whitespace
+    jsonText = jsonText.replace(/[\u200B-\u200D\uFEFF\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
+
     let parsedPlan: ParsedPlan;
     try {
-      // Try to parse as-is first
       parsedPlan = JSON.parse(jsonText) as ParsedPlan;
-    } catch (parseError) {
-      // If initial parsing fails, try additional cleanup
-      console.warn('Initial JSON parsing failed, attempting additional cleanup:', parseError);
+    } catch (parseError: unknown) {
+      console.warn('Initial JSON parsing failed after aggressive cleanup, attempting final string repair:', parseError);
       
-      // Remove any control characters except newlines, tabs, and carriage returns
-      jsonText = jsonText.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
-      
-      // Try parsing again
-      parsedPlan = JSON.parse(jsonText) as ParsedPlan;
+      // If still failing after aggressive extraction, re-throw to trigger fallback in POST
+      throw parseError;
     }
     
     // Validate and transform the parsed data to match NovelPlan interface
@@ -175,11 +205,14 @@ function parseGeneratedPlan(generatedText: string): NovelPlan {
     
     return novelPlan;
     
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error parsing generated plan:', error);
-    console.log('Raw AI response:', generatedText);
-    console.log('Character at error position:', generatedText.charAt(2229));
-    console.log('Surrounding text:', generatedText.substring(2220, 2240));
+    console.log('JSON text attempted to parse:', jsonText);
+    // Check if the error has a 'position' property (common for JSON.parse errors)
+    if (isSyntaxErrorWithPosition(error)) {
+      console.log('Character at error position:', jsonText.charAt(error.position));
+      console.log('Surrounding text:', jsonText.substring(Math.max(0, error.position - 20), error.position + 20));
+    }
     
     // Fallback: Return a basic plan with better defaults
     return {
