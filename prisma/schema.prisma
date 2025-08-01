@@ -30,6 +30,7 @@ model Novel {
   author        User           @relation(fields: [authorId], references: [id])
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
+  novelOutline  String?
   chapters      Chapter[]
   characters    Character[]
   plotlines     Plotline[]
@@ -47,7 +48,7 @@ model Chapter {
   cliffhanger           String?
   additionalData        String?                // JSON string for additional metadata
   novelId               String
-  novel                 Novel                  @relation(fields: [novelId], references: [id])
+  novel                 Novel                  @relation(fields: [novelId], references: [id], onDelete: Cascade)
   createdAt             DateTime               @default(now())
   events                ChapterEvent[]
   characterUsages       CharacterUsage[]
@@ -65,7 +66,7 @@ model Character {
   background    String
   relationships String           // JSON string for character relationships
   novelId       String
-  novel         Novel            @relation(fields: [novelId], references: [id])
+  novel         Novel            @relation(fields: [novelId], references: [id], onDelete: Cascade)
   appearances   ChapterEvent[]
   usages        CharacterUsage[]
 }
@@ -78,7 +79,7 @@ model Plotline {
   status       PlotStatus
   priority     Int                     @default(0)
   novelId      String
-  novel        Novel                   @relation(fields: [novelId], references: [id])
+  novel        Novel                   @relation(fields: [novelId], references: [id], onDelete: Cascade)
   events       ChapterEvent[]
   developments PlotlineDevelopment[]
 }
@@ -87,7 +88,7 @@ model Plotline {
 model WorldBuilding {
   id          String @id @default(cuid())
   novelId     String @unique
-  novel       Novel  @relation(fields: [novelId], references: [id])
+  novel       Novel  @relation(fields: [novelId], references: [id], onDelete: Cascade)
   magicSystem String? // JSON string
   locations   String? // JSON string
   cultures    String? // JSON string
@@ -99,11 +100,11 @@ model WorldBuilding {
 model ChapterEvent {
   id          String     @id @default(cuid())
   chapterId   String
-  chapter     Chapter    @relation(fields: [chapterId], references: [id])
+  chapter     Chapter    @relation(fields: [chapterId], references: [id], onDelete: Cascade)
   characterId String?
-  character   Character? @relation(fields: [characterId], references: [id])
+  character   Character? @relation(fields: [characterId], references: [id], onDelete: Cascade)
   plotlineId  String?
-  plotline    Plotline?  @relation(fields: [plotlineId], references: [id])
+  plotline    Plotline?  @relation(fields: [plotlineId], references: [id], onDelete: Cascade)
   eventType   EventType
   description String
   importance  Int        @default(1)
@@ -113,9 +114,9 @@ model ChapterEvent {
 model CharacterUsage {
   id               String  @id @default(cuid())
   chapterId        String
-  chapter          Chapter @relation(fields: [chapterId], references: [id])
+  chapter          Chapter @relation(fields: [chapterId], references: [id], onDelete: Cascade)
   characterId      String
-  character        Character @relation(fields: [characterId], references: [id])
+  character        Character @relation(fields: [characterId], references: [id], onDelete: Cascade)
   role             String  // protagonist, antagonist, supporting, minor
   developmentNotes String?
   createdAt        DateTime @default(now())
@@ -125,9 +126,9 @@ model CharacterUsage {
 model PlotlineDevelopment {
   id              String   @id @default(cuid())
   chapterId       String
-  chapter         Chapter  @relation(fields: [chapterId], references: [id])
+  chapter         Chapter  @relation(fields: [chapterId], references: [id], onDelete: Cascade)
   plotlineId      String
-  plotline        Plotline @relation(fields: [plotlineId], references: [id])
+  plotline        Plotline @relation(fields: [plotlineId], references: [id], onDelete: Cascade)
   developmentType String   // introduction, advancement, complication, resolution
   description     String
   createdAt       DateTime @default(now())
@@ -181,5 +182,7 @@ enum EventType {
   FLASHBACK
   FORESHADOWING
   TWIST
+  COMPLICATION
   RESOLUTION
+  ABILITY_ACQUISITION
 }

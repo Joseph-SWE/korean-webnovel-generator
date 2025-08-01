@@ -3,6 +3,7 @@ import { prisma } from '@/lib/db';
 import { generateWithRetry } from '@/lib/gemini';
 import { CONSISTENCY_CHECK_PROMPT } from '@/lib/prompts';
 import { ConsistencyManager } from '@/lib/consistency';
+import { EnhancedConsistencyManager } from '@/lib/enhanced-consistency';
 import { z } from 'zod';
 
 // Types for database objects with includes
@@ -37,6 +38,7 @@ const consistencyCheckSchema = z.object({
   chapterId: z.string().optional(),
   novelId: z.string().optional(),
   useAI: z.boolean().default(false),
+  useEnhanced: z.boolean().default(false),
 }).refine(
   (data) => data.chapterId || data.novelId,
   {
@@ -48,9 +50,9 @@ const consistencyCheckSchema = z.object({
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { chapterId, novelId, useAI } = consistencyCheckSchema.parse(body);
+    const { chapterId, novelId, useAI, useEnhanced } = consistencyCheckSchema.parse(body);
 
-    const consistencyManager = new ConsistencyManager();
+    const consistencyManager = useEnhanced ? new EnhancedConsistencyManager() : new ConsistencyManager();
 
     if (chapterId) {
       // Check single chapter consistency
@@ -75,11 +77,13 @@ export async function POST(request: NextRequest) {
       }
 
       // Automated consistency check
-      const automatedCheck = await consistencyManager.checkChapterConsistency(chapterId);
+      const automatedCheck = useEnhanced 
+        ? await (consistencyManager as EnhancedConsistencyManager).checkChapterConsistencyEnhanced(chapterId)
+        : await (consistencyManager as ConsistencyManager).checkChapterConsistency(chapterId);
 
       let aiAnalysis = null;
-      if (useAI) {
-        // AI-powered consistency analysis
+      if (useAI && !useEnhanced) {
+        // AI-powered consistency analysis (legacy mode)
         aiAnalysis = await performAIConsistencyCheck(chapter);
       }
 
@@ -101,11 +105,13 @@ export async function POST(request: NextRequest) {
 
     } else if (novelId) {
       // Check entire novel consistency
-      const report = await consistencyManager.generateConsistencyReport(novelId);
+      const report = useEnhanced 
+        ? await (consistencyManager as EnhancedConsistencyManager).generateEnhancedConsistencyReport(novelId)
+        : await (consistencyManager as ConsistencyManager).generateConsistencyReport(novelId);
 
       // Get novel details for AI analysis if requested
       let novelAIAnalysis = null;
-      if (useAI) {
+      if (useAI && !useEnhanced) {
         const novel = await prisma.novel.findUnique({
           where: { id: novelId },
           include: {
@@ -121,19 +127,27 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      return NextResponse.json({
-        success: true,
-        novelConsistency: {
-          automated: report,
-          ai: novelAIAnalysis,
-          summary: {
-            overallScore: report.overallConsistency,
-            totalIssues: Object.values(report.issuesSummary).reduce((a, b) => a + b, 0),
-            recommendations: report.recommendations,
-            aiInsights: novelAIAnalysis?.insights || []
+              const reportData = report as {
+          overallConsistency: number;
+          issuesSummary: Record<string, number>;
+          recommendations: string[];
+          insights?: string[];
+        };
+
+        return NextResponse.json({
+          success: true,
+          novelConsistency: {
+            automated: report,
+            ai: novelAIAnalysis,
+            summary: {
+              overallScore: reportData.overallConsistency,
+              totalIssues: Object.values(reportData.issuesSummary).reduce((a: number, b: number) => a + b, 0),
+              recommendations: reportData.recommendations,
+              aiInsights: novelAIAnalysis?.insights || [],
+              enhancedInsights: useEnhanced ? (reportData.insights || []) : []
+            }
           }
-        }
-      });
+        });
     }
 
   } catch (error) {
