@@ -1,7 +1,97 @@
 export type Genre = 'ROMANCE' | 'FANTASY' | 'MARTIAL_ARTS' | 'MODERN_URBAN' | 'HISTORICAL' | 'ISEKAI' | 'REGRESSION' | 'VILLAINESS' | 'SYSTEM';
 export type Setting = 'MODERN_KOREA' | 'HISTORICAL_KOREA' | 'FANTASY_WORLD' | 'MURIM_WORLD' | 'ISEKAI_WORLD' | 'ROYAL_COURT' | 'SCHOOL_OFFICE' | 'POST_APOCALYPTIC';
 export type PlotStatus = 'PLANNED' | 'INTRODUCED' | 'DEVELOPING' | 'COMPLICATED' | 'CLIMAXING' | 'RESOLVED' | 'ABANDONED';
-export type EventType = 'CHARACTER_INTRODUCTION' | 'PLOT_ADVANCEMENT' | 'ROMANCE_DEVELOPMENT' | 'CONFLICT_ESCALATION' | 'REVELATION' | 'CLIFFHANGER' | 'CLIFFHANGER_RESOLUTION' | 'CHARACTER_DEVELOPMENT' | 'WORLD_BUILDING' | 'DIALOGUE_SCENE' | 'ACTION_SCENE' | 'FLASHBACK' | 'FORESHADOWING' | 'TWIST' | 'RESOLUTION';
+export type EventType = 'CHARACTER_INTRODUCTION' | 'PLOT_ADVANCEMENT' | 'ROMANCE_DEVELOPMENT' | 'CONFLICT_ESCALATION' | 'REVELATION' | 'CLIFFHANGER' | 'CLIFFHANGER_RESOLUTION' | 'CHARACTER_DEVELOPMENT' | 'WORLD_BUILDING' | 'DIALOGUE_SCENE' | 'ACTION_SCENE' | 'FLASHBACK' | 'FORESHADOWING' | 'TWIST' | 'COMPLICATION' | 'RESOLUTION' | 'ABILITY_ACQUISITION';
+
+export interface CharacterPlan {
+  name: string;
+  age?: number;
+  appearance?: string;
+  personality: string;
+  background: string;
+  motivation?: string;
+  role: string;
+  description?: string;
+}
+
+export interface NovelContext {
+  genre: string;
+  setting: string;
+  title: string;
+  description?: string;
+  characters: Array<CharacterPlan>;
+  novelOutline?: string;
+  plotlines: Array<{
+    name: string;
+    description: string;
+    status: string;
+  }>;
+  previousEvents?: string[];
+  worldBuilding?: {
+    magicSystem?: string;
+    locations?: string[];
+    cultures?: string[];
+    rules?: string[];
+  };
+}
+
+export interface ChapterContext extends NovelContext {
+  chapterNumber: number;
+  chaptersGeneratedCount: number;
+  previousChapterSummary?: string;
+  targetWordCount: number;
+  focusCharacters?: string[];
+  plotFocus?: string;
+  storyContext?: {
+    recentEvents: string[];
+    ongoingPlotThreads: string[];
+    characterDevelopments: string[];
+    previousChapterCliffhanger: string | null;
+    recentChapterContents?: Array<{
+      number: number;
+      title: string;
+      content: string;
+      cliffhanger?: string | null;
+    }>;
+    comprehensiveContext?: {
+      mainCharacters: any[];
+      activePlotThreads: any[];
+      worldRules: any[];
+      recentFlow: any[];
+      unresolved: any;
+      consistencyRequirements: any;
+    };
+  };
+  plotlineBalance?: Array<{
+    id: string;
+    name: string;
+    description: string;
+    status: string;
+    priority: number;
+    chaptersSinceLastDevelopment: number;
+    chaptersSinceLastEvent: number;
+    urgencyScore: number;
+    developmentCount: number;
+    needsAttention: boolean;
+  }>;
+  plotlineDistribution?: {
+    totalPlotlines: number;
+    totalDevelopments: number;
+    averageDevsPerPlotline: number;
+    imbalanceScore: number;
+    isBalanced: boolean;
+    plotlineDistribution: Array<{
+      plotlineId: string;
+      plotlineName: string;
+      priority: number;
+      developmentCount: number;
+      chaptersActive: number;
+      developmentDensity: number;
+      activeRatio: number;
+    }>;
+    recommendations: string[];
+  };
+}
 
 export interface CreateNovelRequest {
   title: string;
@@ -95,7 +185,9 @@ export interface AdditionalData {
     plotlineName: string;
     developmentType: string;
     description: string;
+    significance: 'low' | 'medium' | 'high';
   }>;
+  newCharacters?: CharacterPlan[];
   fixedIssues?: Array<{
     originalIssue: string;
     solution: string;
@@ -184,16 +276,6 @@ export interface NovelPlan {
   worldBuilding?: WorldBuildingPlan;
 }
 
-export interface CharacterPlan {
-  name: string;
-  age?: number;
-  appearance?: string;
-  personality: string;
-  background: string;
-  motivation?: string;
-  role: string;
-}
-
 export interface PlotPoint {
   name: string;
   description: string;
@@ -211,6 +293,16 @@ export interface WorldBuildingPlan {
 export interface ConsistencyCheck {
   hasIssues: boolean;
   issues: ConsistencyIssue[];
+  metadata?: {
+    scores?: {
+      psychology: number;
+      narrative: number;
+      worldBuilding: number;
+      emotional: number;
+    };
+    insights?: string[];
+    analysisTimestamp?: string;
+  };
 }
 
 export interface ConsistencyIssue {
